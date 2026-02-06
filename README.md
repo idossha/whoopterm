@@ -20,9 +20,11 @@ A beautiful terminal dashboard for WHOOP fitness data.
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew tap idossha/whoopterm
+brew tap idossha/homebrew-whoopterm
 brew install whoopterm
 ```
+
+> **Note**: This tap is maintained separately at [github.com/idossha/homebrew-whoopterm](https://github.com/idossha/homebrew-whoopterm)
 
 ### APT (Debian/Ubuntu)
 
