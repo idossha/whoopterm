@@ -21,3 +21,13 @@ class Whoopterm < Formula
     system "#{bin}/whoop", "--version"
   end
 end
+  end
+
+  def install
+    bin.install "whoop-macos" => "whoop"
+  end
+
+  test do
+    system "#{bin}/whoop", "--version"
+  end
+end
