@@ -3,19 +3,14 @@ set -e
 
 VERSION="1.0.0"
 ARCH="amd64"
-PKG_NAME="whoop-cli_${VERSION}_${ARCH}"
-
-# Create directory structure
-mkdir -p ${PKG_NAME}/DEBIAN
-mkdir -p ${PKG_NAME}/usr/bin
-mkdir -p ${PKG_NAME}/usr/share/doc/whoop-cli
+PKG_NAME="whoopterm_${VERSION}_${ARCH}"
 
 # Copy binary
-cp ../../target/release/whoop ${PKG_NAME}/usr/bin/
+cp ../../target/release/whoopterm ${PKG_NAME}/usr/bin/
 
 # Create control file
 cat > ${PKG_NAME}/DEBIAN/control << EOF
-Package: whoop-cli
+Package: whoopterm
 Version: ${VERSION}
 Section: utils
 Priority: optional
@@ -23,7 +18,7 @@ Architecture: ${ARCH}
 Depends: libc6
 Maintainer: idossha <idossha@example.com>
 Description: WHOOP fitness dashboard for the terminal
- whoop-cli provides a beautiful terminal interface for viewing
+ whoopterm provides a beautiful terminal interface for viewing
  your WHOOP fitness data including recovery, sleep, and workouts.
 EOF
 

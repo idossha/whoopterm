@@ -20,7 +20,7 @@ A beautiful terminal dashboard for WHOOP fitness data.
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew tap idossha/whoop
+brew tap idossha/whoopterm
 brew install whoopterm
 ```
 
@@ -40,7 +40,7 @@ Requires: Rust 1.70+
 git clone https://github.com/idossha/whoopterm.git
 cd whoopterm
 cargo build --release
-sudo cp target/release/whoop /usr/local/bin/
+sudo cp target/release/whoopterm /usr/local/bin/
 ```
 
 ## Usage
@@ -78,11 +78,11 @@ whoop
 ### Commands
 
 ```bash
-whoop --help           # Show help
-whoop --auth           # Authenticate with WHOOP
-whoop --test           # Test API connectivity
-whoop --refresh        # Force refresh data
-whoop --version        # Show version
+whoopterm --help           # Show help
+whoopterm --auth           # Authenticate with WHOOP
+whoopterm --test           # Test API connectivity
+whoopterm --refresh        # Force refresh data
+whoopterm --version        # Show version
 ```
 
 ## Dashboard Sections
