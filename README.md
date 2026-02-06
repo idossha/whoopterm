@@ -11,6 +11,9 @@ A beautiful terminal dashboard for WHOOP fitness data.
 - **Secure**: OAuth2 authentication with local token storage
 - **Fast**: Single binary, instant startup
 - **Cross-platform**: Works on macOS, Linux, and Windows
+- **Comprehensive Metrics**: Recovery scores, sleep analysis, workout tracking
+- **Data Visualization**: Charts and graphs for trends over time
+- **Keyboard Navigation**: Intuitive controls for dashboard interaction
 
 ## Installation
 
@@ -69,6 +72,8 @@ whoop
 **Controls:**
 - `r` - Refresh data
 - `q` or `Esc` - Quit
+- Arrow keys - Navigate
+- `Enter` - Select/expand
 
 ### Commands
 
@@ -77,6 +82,7 @@ whoop --help           # Show help
 whoop --auth           # Authenticate with WHOOP
 whoop --test           # Test API connectivity
 whoop --refresh        # Force refresh data
+whoop --version        # Show version
 ```
 
 ## Dashboard Sections
@@ -84,14 +90,22 @@ whoop --refresh        # Force refresh data
 ### Today's Metrics
 - **Recovery**: Score, resting heart rate, HRV
 - **Last Night's Sleep**: Duration, efficiency, sleep stages breakdown
+- **Strain**: Daily activity score and target
 
 ### Sleep History
 - 7-day sleep overview with visual charts
 - Hours slept and efficiency percentages
+- Sleep consistency tracking
 
 ### Recent Workouts
 - Last 5 workouts with strain scores
 - Duration and average heart rate
+- Workout type categorization
+
+### Trends
+- Weekly and monthly performance trends
+- Recovery pattern analysis
+- Sleep quality improvements
 
 ## Configuration
 
@@ -101,12 +115,15 @@ whoop-cli reads configuration from environment variables:
 |----------|-------------|
 | `WHOOP_CLIENT_ID` | Your WHOOP API client ID |
 | `WHOOP_CLIENT_SECRET` | Your WHOOP API client secret |
+| `WHOOP_CACHE_TTL` | Cache duration in minutes (default: 30) |
+| `WHOOP_DATA_DIR` | Custom data directory path |
 
 Add to your shell profile (~/.bashrc, ~/.zshrc, etc.):
 
 ```bash
 export WHOOP_CLIENT_ID="your_client_id"
 export WHOOP_CLIENT_SECRET="your_client_secret"
+export WHOOP_CACHE_TTL="60"
 ```
 
 ## Data Storage
@@ -120,22 +137,68 @@ All data is stored locally:
 Files:
 - `tokens.json` - OAuth tokens
 - `cache.json` - Cached fitness data
+- `config.json` - User preferences
 
 ## Privacy
 
 - All data stored locally on your device
 - No data transmitted to third parties
 - Direct API connection to WHOOP only
+- No analytics or tracking
+
+## Development
+
+### Prerequisites
+- Rust 1.70 or later
+- Git
+- Your favorite editor or IDE
+
+### Building
+
+```bash
+# Build the project
+cargo build
+
+# Run tests
+cargo test
+
+# Run the application
+cargo run
+
+# Build for release
+cargo build --release
+```
+
+### Code Style
+
+- Use `rustfmt` for formatting code
+- Use `clippy` for linting
+- Follow Rust naming conventions
+
+```bash
+# Format code
+cargo fmt
+
+# Run clippy
+cargo clippy -- -D warnings
+```
+
+### Contributing
+
+We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting changes.
 
 ## License
 
 MIT License - see [LICENSE](LICENSE)
 
-## Contributing
+## Support
 
-Contributions welcome! Please submit issues and pull requests.
+- [Issues](https://github.com/idossha/whoopterm/issues)
+- [Discussions](https://github.com/idossha/whoopterm/discussions)
 
 ## Acknowledgments
 
 - WHOOP for the Developer API
 - [ratatui](https://github.com/ratatui-org/ratatui) for the excellent TUI framework
+- [reqwest](https://github.com/seanmonstar/reqwest) for HTTP client
+- [oauth2](https://github.com/ramosbugs/oauth2-rs) for OAuth2 implementation

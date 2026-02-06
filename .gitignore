@@ -1,0 +1,32 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+Cargo.nix
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+/target/
+/target-debug/
+/target-release/
+
+# Dependency directories
+/target/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Local development
+local.*
