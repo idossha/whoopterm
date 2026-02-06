@@ -6,7 +6,7 @@ ARCH="amd64"
 PKG_NAME="whoopterm_${VERSION}_${ARCH}"
 
 # Copy binary
-cp ../../target/release/whoopterm ${PKG_NAME}/usr/bin/
+cp ../../target/release/whoop ${PKG_NAME}/usr/bin/
 
 # Create control file
 cat > ${PKG_NAME}/DEBIAN/control << EOF
@@ -23,8 +23,8 @@ Description: WHOOP fitness dashboard for the terminal
 EOF
 
 # Copy documentation
-cp ../../README.md ${PKG_NAME}/usr/share/doc/whoop-cli/
-cp ../../LICENSE ${PKG_NAME}/usr/share/doc/whoop-cli/
+cp ../../README.md ${PKG_NAME}/usr/share/doc/whoopterm/
+cp ../../LICENSE ${PKG_NAME}/usr/share/doc/whoopterm/
 
 # Build package
 dpkg-deb --build ${PKG_NAME}

@@ -20,11 +20,11 @@ A beautiful terminal dashboard for WHOOP fitness data.
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew tap idossha/homebrew-whoopterm
+brew tap idossha/whoopterm
 brew install whoopterm
 ```
 
-> **Note**: This tap is maintained separately at [github.com/idossha/homebrew-whoopterm](https://github.com/idossha/homebrew-whoopterm)
+> **Note**: This tap is maintained separately at [github.com/idossha/whoopterm](https://github.com/idossha/whoopterm)
 
 ### APT (Debian/Ubuntu)
 
@@ -111,7 +111,7 @@ whoopterm --version        # Show version
 
 ## Configuration
 
-whoop-cli reads configuration from environment variables:
+whoopterm reads configuration from environment variables:
 
 | Variable | Description |
 |----------|-------------|
@@ -132,9 +132,9 @@ export WHOOP_CACHE_TTL="60"
 
 All data is stored locally:
 
-- **macOS**: `~/Library/Application Support/whoop-cli/`
-- **Linux**: `~/.local/share/whoop-cli/`
-- **Windows**: `%APPDATA%/whoop-cli/`
+- **macOS**: `~/Library/Application Support/whoopterm/`
+- **Linux**: `~/.local/share/whoopterm/`
+- **Windows**: `%APPDATA%/whoopterm/`
 
 Files:
 - `tokens.json` - OAuth tokens

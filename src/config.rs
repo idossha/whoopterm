@@ -27,7 +27,7 @@ impl Config {
     pub fn data_dir() -> Result<PathBuf> {
         let dir = dirs::data_dir()
             .context("Failed to get data directory")?
-            .join("whoop-cli");
+            .join("whoopterm");
         
         fs::create_dir_all(&dir)?;
         Ok(dir)

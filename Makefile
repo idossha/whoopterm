@@ -1,6 +1,6 @@
 .PHONY: build install clean release test
 
-BINARY_NAME=whoopterm
+BINARY_NAME=whoop
 BUILD_DIR=target/release
 
 build:
