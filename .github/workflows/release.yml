@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: x86_64-apple-darwin
+        override: true
+    
+    - name: Build x86_64
+      run: cargo build --release --target x86_64-apple-darwin
+    
+    - name: Build aarch64
+      run: rustup target add aarch64-apple-darwin && cargo build --release --target aarch64-apple-darwin
+    
+    - name: Create universal binary
+      run: |
+        lipo -create -output whoop-macos \
+          target/x86_64-apple-darwin/release/whoop \
+          target/aarch64-apple-darwin/release/whoop
+        chmod +x whoop-macos
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: whoop-macos
+        path: whoop-macos
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    
+    - name: Build
+      run: cargo build --release
+    
+    - name: Rename binary
+      run: mv target/release/whoop whoop-linux-x86_64
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: whoop-linux-x86_64
+        path: whoop-linux-x86_64
+
+  create-release:
+    needs: [build-macos, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          whoop-macos/whoop-macos
+          whoop-linux-x86_64/whoop-linux-x86_64
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
