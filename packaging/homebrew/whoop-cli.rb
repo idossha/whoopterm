@@ -5,16 +5,16 @@ class Whoopterm < Formula
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/idossha/whoopterm/releases/download/v1.0.0/whoop-macos"
+      url "https://github.com/idossha/whoopterm/releases/download/v1.0.0/whoopterm-release"
       sha256 "PLACEHOLDER_SHA256_INTEL"
     else
-      url "https://github.com/idossha/whoopterm/releases/download/v1.0.0/whoop-macos"
+      url "https://github.com/idossha/whoopterm/releases/download/v1.0.0/whoopterm-release"
       sha256 "PLACEHOLDER_SHA256_ARM"
     end
   end
 
   def install
-    bin.install "whoop-macos" => "whoop"
+    bin.install "whoopterm-release" => "whoop"
   end
 
   test do
