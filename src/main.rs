@@ -4,7 +4,7 @@ use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
+    text::{Line, Span},
     widgets::{Block, Borders, Cell, Paragraph, Row, Table, Clear},
     Frame, Terminal,
 };
@@ -21,7 +21,7 @@ mod config;
 mod data;
 
 use api::WhoopAPI;
-use data::{Recovery, Sleep, Workout, DashboardData};
+use data::{DashboardData};
 
 #[derive(Parser)]
 #[command(name = "whoop")]
@@ -348,7 +348,8 @@ fn render_sleep_history(f: &mut Frame, area: Rect, data: &DashboardData) {
         .iter()
         .take(7)
         .map(|sleep| {
-            let date = sleep.start.split('T').next().unwrap_or("");
+            let rfc_date = sleep.start.to_rfc3339();
+            let date = rfc_date.split('T').next().unwrap_or("");
             let hours = sleep.score.stage_summary.total_in_bed_time_milli as f64 / 3600000.0;
             let bar = create_horizontal_bar(hours as i32, 10, 20);
             let efficiency = sleep.score.sleep_efficiency_percentage;
@@ -395,7 +396,8 @@ fn render_workouts(f: &mut Frame, area: Rect, data: &DashboardData) {
         .iter()
         .take(5)
         .map(|workout| {
-            let date = workout.start.split('T').next().unwrap_or("");
+            let rfc_date = workout.start.to_rfc3339();
+            let date = rfc_date.split('T').next().unwrap_or("");
             let activity = workout.sport_name.clone();
             let strain_bar = create_horizontal_bar((workout.score.strain * 10.0) as i32, 210, 10);
             let strain = format!("{:.1}", workout.score.strain);

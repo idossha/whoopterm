@@ -68,7 +68,7 @@ pub struct WorkoutScore {
     pub kilojoule: f64,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardData {
     pub profile: Option<Profile>,
     pub recovery: Vec<Recovery>,

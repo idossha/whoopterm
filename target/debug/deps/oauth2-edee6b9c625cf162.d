@@ -1,0 +1,11 @@
+/Users/idohaber/00_development/whoopterm/target/debug/deps/oauth2-edee6b9c625cf162.d: /Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/lib.rs /Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/basic.rs /Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/devicecode.rs /Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/revocation.rs /Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/helpers.rs /Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/reqwest.rs /Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/types.rs
+
+/Users/idohaber/00_development/whoopterm/target/debug/deps/liboauth2-edee6b9c625cf162.rmeta: /Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/lib.rs /Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/basic.rs /Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/devicecode.rs /Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/revocation.rs /Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/helpers.rs /Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/reqwest.rs /Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/types.rs
+
+/Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/lib.rs:
+/Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/basic.rs:
+/Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/devicecode.rs:
+/Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/revocation.rs:
+/Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/helpers.rs:
+/Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/reqwest.rs:
+/Users/idohaber/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oauth2-4.4.2/src/types.rs:

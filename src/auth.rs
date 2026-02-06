@@ -1,15 +1,6 @@
 use anyhow::{Context, Result};
-use oauth2::{
-    AuthorizationCode,
-    AuthUrl,
-    ClientId,
-    ClientSecret,
-    CsrfToken,
-    RedirectUrl,
-    Scope,
-    TokenResponse,
-    TokenUrl,
-};
+use serde::{Deserialize, Serialize};
+use oauth2::{AuthorizationCode, AuthUrl, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope, TokenResponse, TokenUrl};
 use oauth2::basic::BasicClient;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
@@ -24,7 +15,7 @@ pub struct AuthManager {
     config: Config,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tokens {
     pub access_token: String,
     pub refresh_token: Option<String>,
