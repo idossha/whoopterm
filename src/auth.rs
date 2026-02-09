@@ -100,7 +100,7 @@ impl AuthManager {
             }
         }
 
-        Err(anyhow::anyhow!("Not authenticated. Run: whoop --auth"))
+        Err(anyhow::anyhow!("Not authenticated. Run: whoopterm --auth"))
     }
 
     async fn refresh_token(&self, refresh_token: &str) -> Result<Tokens> {

@@ -24,7 +24,7 @@ use api::WhoopAPI;
 use data::{DashboardData};
 
 #[derive(Parser)]
-#[command(name = "whoop")]
+#[command(name = "whoopterm")]
 #[command(about = "WHOOP fitness dashboard for the terminal")]
 #[command(version)]
 struct Cli {

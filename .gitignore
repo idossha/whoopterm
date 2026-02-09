@@ -1,8 +1,6 @@
 # Rust
 /target/
 **/*.rs.bk
-Cargo.lock
-Cargo.nix
 
 # IDE
 .vscode/
@@ -16,12 +14,9 @@ Cargo.nix
 Thumbs.db
 
 # Build artifacts
-/target/
 /target-debug/
 /target-release/
-
-# Dependency directories
-/target/
+whoopterm-release
 
 # Environment variables
 .env

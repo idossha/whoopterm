@@ -24,7 +24,7 @@ brew tap idossha/whoopterm
 brew install whoopterm
 ```
 
-> **Note**: This tap is maintained separately at [github.com/idossha/whoopterm](https://github.com/idossha/whoopterm)
+> **Note**: This tap is maintained separately at [github.com/idossha/homebrew-whoopterm](https://github.com/idossha/homebrew-whoopterm)
 
 ### APT (Debian/Ubuntu)
 
@@ -60,7 +60,7 @@ export WHOOP_CLIENT_SECRET="your_client_secret"
 3. Authenticate:
 
 ```bash
-whoop --auth
+whoopterm --auth
 ```
 
 ### Dashboard
@@ -68,7 +68,7 @@ whoop --auth
 Launch the dashboard:
 
 ```bash
-whoop
+whoopterm
 ```
 
 **Controls:**

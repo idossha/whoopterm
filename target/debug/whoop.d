@@ -1,1 +1,0 @@
-/Users/idohaber/00_development/whoopterm/target/debug/whoop: /Users/idohaber/00_development/whoopterm/src/api.rs /Users/idohaber/00_development/whoopterm/src/auth.rs /Users/idohaber/00_development/whoopterm/src/config.rs /Users/idohaber/00_development/whoopterm/src/data.rs /Users/idohaber/00_development/whoopterm/src/main.rs
