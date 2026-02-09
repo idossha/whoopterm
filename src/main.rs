@@ -87,39 +87,43 @@ impl App {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    let mut app = App::new();
+
+    // Handle --auth and --test before entering TUI mode
+    if cli.auth {
+        if let Err(e) = app.api.authenticate().await {
+            eprintln!("Authentication failed: {}", e);
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
+
+    if cli.test {
+        match app.api.test_connection().await {
+            Ok(_) => {
+                println!("API test successful!");
+            }
+            Err(e) => {
+                eprintln!("API test failed: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
+    // Load data before entering TUI
+    if cli.refresh {
+        let _ = app.refresh_data().await;
+    } else {
+        let _ = app.load_data().await;
+    }
+
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-
-    let mut app = App::new();
-
-    // Handle CLI arguments
-    if cli.auth {
-        // Run authentication
-        if let Err(e) = app.api.authenticate().await {
-            app.error_message = Some(format!("Authentication failed: {}", e));
-        }
-    } else if cli.test {
-        // Test API
-        match app.api.test_connection().await {
-            Ok(_) => {
-                app.error_message = Some("API test successful!".to_string());
-            }
-            Err(e) => {
-                app.error_message = Some(format!("API test failed: {}", e));
-            }
-        }
-    } else {
-        // Load data
-        if cli.refresh {
-            let _ = app.refresh_data().await;
-        } else {
-            let _ = app.load_data().await;
-        }
-    }
 
     // Run main loop
     let res = run_app(&mut terminal, &mut app).await;

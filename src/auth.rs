@@ -147,7 +147,7 @@ impl AuthManager {
                 // Extract code from URL
                 if let Some(code_start) = line.find("code=") {
                     let code = line[code_start + 5..]
-                        .split_whitespace()
+                        .split(&['&', ' '][..])
                         .next()
                         .context("Failed to parse auth code")?;
                     
