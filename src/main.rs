@@ -5,7 +5,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, Paragraph, Row, Table, Clear},
+    widgets::{Block, BorderType, Borders, Cell, Clear, Paragraph, Row, Table, Wrap},
     Frame, Terminal,
 };
 use crossterm::{
@@ -14,6 +14,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::io;
+use std::time::{Duration, Instant};
 
 mod api;
 mod auth;
@@ -21,7 +22,10 @@ mod config;
 mod data;
 
 use api::WhoopAPI;
-use data::{DashboardData};
+use data::{DashboardData, SleepScore};
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+const REFRESH_INTERVAL: Duration = Duration::from_secs(300); // Auto-refresh every 5 minutes
 
 #[derive(Parser)]
 #[command(name = "whoopterm")]
@@ -45,6 +49,8 @@ struct App {
     data: Option<DashboardData>,
     api: WhoopAPI,
     error_message: Option<String>,
+    last_refresh: Option<Instant>,
+    loading: bool,
 }
 
 impl App {
@@ -53,33 +59,49 @@ impl App {
             data: None,
             api: WhoopAPI::new(),
             error_message: None,
+            last_refresh: None,
+            loading: false,
         }
     }
 
     async fn load_data(&mut self) -> Result<()> {
+        self.loading = true;
         match self.api.load_cached_or_refresh().await {
             Ok(data) => {
                 self.data = Some(data);
                 self.error_message = None;
+                self.last_refresh = Some(Instant::now());
             }
             Err(e) => {
-                self.error_message = Some(format!("Error: {}", e));
+                self.error_message = Some(format!("{}", e));
             }
         }
+        self.loading = false;
         Ok(())
     }
 
     async fn refresh_data(&mut self) -> Result<()> {
+        self.loading = true;
         match self.api.refresh_all_data().await {
             Ok(data) => {
                 self.data = Some(data);
                 self.error_message = None;
+                self.last_refresh = Some(Instant::now());
             }
             Err(e) => {
-                self.error_message = Some(format!("Error: {}", e));
+                self.error_message = Some(format!("{}", e));
             }
         }
+        self.loading = false;
         Ok(())
+    }
+
+    fn should_auto_refresh(&self) -> bool {
+        if let Some(last) = self.last_refresh {
+            last.elapsed() > REFRESH_INTERVAL
+        } else {
+            false
+        }
     }
 }
 
@@ -92,7 +114,7 @@ async fn main() -> Result<()> {
     // Handle --auth and --test before entering TUI mode
     if cli.auth {
         if let Err(e) = app.api.authenticate().await {
-            eprintln!("Authentication failed: {}", e);
+            eprintln!("Authentication failed: {:#}", e);
             std::process::exit(1);
         }
         return Ok(());
@@ -145,15 +167,20 @@ async fn main() -> Result<()> {
 }
 
 async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> {
-    let mut last_tick = std::time::Instant::now();
-    let tick_rate = std::time::Duration::from_millis(250);
+    let mut last_tick = Instant::now();
+    let tick_rate = Duration::from_millis(250);
 
     loop {
         terminal.draw(|f| ui(f, app))?;
 
+        // Auto-refresh every 5 minutes
+        if app.should_auto_refresh() {
+            let _ = app.refresh_data().await;
+        }
+
         let timeout = tick_rate
             .checked_sub(last_tick.elapsed())
-            .unwrap_or_else(|| std::time::Duration::from_secs(0));
+            .unwrap_or_else(|| Duration::from_secs(0));
 
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
@@ -168,215 +195,292 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
         }
 
         if last_tick.elapsed() >= tick_rate {
-            last_tick = std::time::Instant::now();
+            last_tick = Instant::now();
         }
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// UI Rendering
+// ─────────────────────────────────────────────────────────────────────────────
+
 fn ui(f: &mut Frame, app: &App) {
-    let size = f.size();
+    let size = f.area();
     
     // Main layout
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
         .constraints([
-            Constraint::Length(3),  // Header
-            Constraint::Length(2),  // User info
-            Constraint::Min(10),    // Main content
+            Constraint::Length(1),  // Header bar
+            Constraint::Length(10), // Recovery + Sleep row
+            Constraint::Min(6),     // Sleep history (flexible)
+            Constraint::Min(6),     // Workouts (flexible)
             Constraint::Length(1),  // Footer
         ])
         .split(size);
 
     // Header
-    let header = Paragraph::new("WHOOP DASHBOARD")
-        .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
-        .alignment(Alignment::Center)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_type(ratatui::widgets::BorderType::Rounded),
-        );
-    f.render_widget(header, chunks[0]);
+    render_header(f, chunks[0], app);
 
-    // User info
-    if let Some(data) = &app.data {
-        let user_text = if let Some(profile) = &data.profile {
-            format!(
-                "  {} {}  |  ID: {}",
-                profile.first_name, profile.last_name, profile.user_id
-            )
-        } else {
-            "  Not authenticated".to_string()
-        };
-        let user_info = Paragraph::new(user_text)
-            .style(Style::default().fg(Color::Gray));
-        f.render_widget(user_info, chunks[1]);
-    }
-
-    // Error message
+    // Error overlay if present
     if let Some(error) = &app.error_message {
-        let error_widget = Paragraph::new(error.as_str())
-            .style(Style::default().fg(Color::Red))
-            .alignment(Alignment::Center)
-            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Red)));
-        let area = centered_rect(60, 20, size);
-        f.render_widget(Clear, area);
-        f.render_widget(error_widget, area);
+        render_error_popup(f, size, error);
         return;
     }
 
-    // Main content
     if let Some(data) = &app.data {
-        render_main_content(f, chunks[2], data);
+        // Recovery + Sleep side by side
+        render_recovery_and_sleep(f, chunks[1], data);
+        
+        // Sleep history
+        render_sleep_history(f, chunks[2], data);
+        
+        // Workouts
+        render_workouts(f, chunks[3], data);
+    } else if app.loading {
+        let loading = Paragraph::new("Loading...")
+            .style(Style::default().fg(Color::Cyan))
+            .alignment(Alignment::Center);
+        f.render_widget(loading, chunks[1]);
     }
 
     // Footer
-    let footer = Paragraph::new("[r] Refresh  |  [q] Quit")
-        .style(Style::default().fg(Color::DarkGray))
-        .alignment(Alignment::Center);
-    f.render_widget(footer, chunks[3]);
+    render_footer(f, chunks[4]);
 }
 
-fn render_main_content(f: &mut Frame, area: Rect, data: &DashboardData) {
+fn render_header(f: &mut Frame, area: Rect, app: &App) {
+    let profile_name = app.data.as_ref()
+        .and_then(|d| d.profile.as_ref())
+        .map(|p| format!("{} {}", p.first_name, p.last_name))
+        .unwrap_or_else(|| "WHOOPTERM".to_string());
+    
+    let refresh_text = if let Some(last) = app.last_refresh {
+        let elapsed = last.elapsed();
+        if elapsed.as_secs() < 60 {
+            "just now".to_string()
+        } else if elapsed.as_secs() < 3600 {
+            format!("{}m ago", elapsed.as_secs() / 60)
+        } else {
+            format!("{}h ago", elapsed.as_secs() / 3600)
+        }
+    } else {
+        "never".to_string()
+    };
+
+    let header_spans = vec![
+        Span::styled(profile_name, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::styled("  |  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(format!("Last updated: {}", refresh_text), Style::default().fg(Color::Gray)),
+        Span::styled("  |  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(format!("v{}", VERSION), Style::default().fg(Color::DarkGray)),
+    ];
+
+    let header = Paragraph::new(Line::from(header_spans));
+    f.render_widget(header, area);
+}
+
+fn render_recovery_and_sleep(f: &mut Frame, area: Rect, data: &DashboardData) {
     let chunks = Layout::default()
-        .direction(Direction::Vertical)
+        .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Length(7), // Recovery + Sleep
-            Constraint::Length(12), // Sleep history
-            Constraint::Min(6),    // Workouts
+            Constraint::Percentage(35), // Recovery
+            Constraint::Percentage(65), // Sleep
         ])
         .split(area);
 
-    // Recovery and Today's Sleep
-    render_today_metrics(f, chunks[0], data);
-
-    // Sleep history
-    render_sleep_history(f, chunks[1], data);
-
-    // Workouts
-    render_workouts(f, chunks[2], data);
+    render_recovery_panel(f, chunks[0], data);
+    render_sleep_panel(f, chunks[1], data);
 }
 
-fn render_today_metrics(f: &mut Frame, area: Rect, data: &DashboardData) {
+fn render_recovery_panel(f: &mut Frame, area: Rect, data: &DashboardData) {
     let block = Block::default()
-        .title(" Today's Metrics ")
+        .title(" Recovery ")
+        .title_style(Style::default().fg(Color::Cyan))
         .borders(Borders::ALL)
-        .border_type(ratatui::widgets::BorderType::Rounded);
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(Color::DarkGray));
     
     let inner = block.inner(area);
     f.render_widget(block, area);
 
-    let mut text = vec![];
-
-    // Recovery
-    if let Some(recovery) = data.recovery.first() {
-        let score = recovery.score.recovery_score;
-        let bar = create_horizontal_bar(score, 100, 30);
-        text.push(Line::from(vec![
-            Span::styled("  Recovery: ", Style::default().fg(Color::Gray)),
-            Span::styled(format!("{:3}% ", score), Style::default().fg(get_score_color(score))),
-            Span::styled(bar, Style::default().fg(Color::Gray)),
-        ]));
-        text.push(Line::from(vec![
-            Span::styled(
-                format!("    RHR: {} bpm    HRV: {:.1} ms", recovery.score.resting_heart_rate, recovery.score.hrv_rmssd_milli),
-                Style::default().fg(Color::Gray),
-            ),
-        ]));
-    }
-
-    text.push(Line::from(""));
-
-    // Sleep
-    if let Some(sleep) = data.sleep.first() {
-        let total = sleep.score.stage_summary.total_in_bed_time_milli / 60000;
-        let efficiency = sleep.score.sleep_efficiency_percentage;
-        text.push(Line::from(vec![
-            Span::styled("  Last Night's Sleep: ", Style::default().fg(Color::Gray)),
-            Span::styled(
-                format!("{}  |  Efficiency: {}%", format_duration(total), efficiency),
-                Style::default().fg(Color::White),
-            ),
-        ]));
-
-        // Sleep stages
-        let stages = &sleep.score.stage_summary;
-        let awake = stages.total_awake_time_milli / 60000;
-        let light = stages.total_light_sleep_time_milli / 60000;
-        let deep = stages.total_slow_wave_sleep_time_milli / 60000;
-        let rem = stages.total_rem_sleep_time_milli / 60000;
-        let total_all = awake + light + deep + rem;
-
-        if total_all > 0 {
-            text.push(Line::from(vec![
-                Span::styled(
-                    format!(
-                        "    Awake: {} ({:.0}%)  Light: {} ({:.0}%)  Deep: {} ({:.0}%)  REM: {} ({:.0}%)",
-                        format_duration_short(awake),
-                        (awake as f64 / total_all as f64) * 100.0,
-                        format_duration_short(light),
-                        (light as f64 / total_all as f64) * 100.0,
-                        format_duration_short(deep),
-                        (deep as f64 / total_all as f64) * 100.0,
-                        format_duration_short(rem),
-                        (rem as f64 / total_all as f64) * 100.0
-                    ),
-                    Style::default().fg(Color::DarkGray),
-                ),
+    if let Some(recovery) = data.recovery.first().and_then(|r| r.score.as_ref()) {
+        let score = recovery.recovery_score as i32;
+        let color = get_recovery_color(score);
+        
+        let bar_width = (inner.width as usize).saturating_sub(12);
+        let bar = create_horizontal_bar(score, 100, bar_width);
+        
+        let text = vec![
+            Line::from(vec![
+                Span::styled(format!("{:3}%", score), Style::default().fg(color).add_modifier(Modifier::BOLD)),
+                Span::styled(" ", Style::default()),
+                Span::styled(bar, Style::default().fg(color)),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("RHR  ", Style::default().fg(Color::Gray)),
+                Span::styled(format!("{:.0} bpm", recovery.resting_heart_rate), Style::default().fg(Color::White)),
+            ]),
+            Line::from(vec![
+                Span::styled("HRV  ", Style::default().fg(Color::Gray)),
+                Span::styled(format!("{:.1} ms", recovery.hrv_rmssd_milli), Style::default().fg(Color::White)),
+            ]),
+        ];
+        
+        let mut final_text = text;
+        if let Some(spo2) = recovery.spo2_percentage {
+            final_text.push(Line::from(vec![
+                Span::styled("SpO₂ ", Style::default().fg(Color::Gray)),
+                Span::styled(format!("{:.0}%", spo2), Style::default().fg(Color::White)),
             ]));
         }
+        if let Some(temp) = recovery.skin_temp_celsius {
+            final_text.push(Line::from(vec![
+                Span::styled("Skin ", Style::default().fg(Color::Gray)),
+                Span::styled(format!("{:.1}°C", temp), Style::default().fg(Color::White)),
+            ]));
+        }
+        
+        let paragraph = Paragraph::new(final_text);
+        f.render_widget(paragraph, inner);
+    } else {
+        let no_data = Paragraph::new("No recovery data")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(no_data, inner);
+    }
+}
+
+fn render_sleep_panel(f: &mut Frame, area: Rect, data: &DashboardData) {
+    let block = Block::default()
+        .title(" Last Night's Sleep ")
+        .title_style(Style::default().fg(Color::Cyan))
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(Color::DarkGray));
+    
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+
+    if let Some(sleep) = data.sleep.first() {
+        if let Some(score) = &sleep.score {
+            render_sleep_content(f, inner, score);
+        } else {
+            let no_data = Paragraph::new("Sleep not scored")
+                .style(Style::default().fg(Color::Gray))
+                .alignment(Alignment::Center);
+            f.render_widget(no_data, inner);
+        }
+    } else {
+        let no_data = Paragraph::new("No sleep data")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(no_data, inner);
+    }
+}
+
+fn render_sleep_content(f: &mut Frame, area: Rect, score: &SleepScore) {
+    let stages = &score.stage_summary;
+    let total_mins = stages.total_in_bed_time_milli / 60000;
+    let efficiency = score.sleep_efficiency_percentage.unwrap_or(0.0);
+    let performance = score.sleep_performance_percentage.unwrap_or(0.0);
+    
+    let awake_mins = stages.total_awake_time_milli / 60000;
+    let light_mins = stages.total_light_sleep_time_milli / 60000;
+    let deep_mins = stages.total_slow_wave_sleep_time_milli / 60000;
+    let rem_mins = stages.total_rem_sleep_time_milli / 60000;
+
+    // Top row: Duration, Efficiency, Performance
+    let mut text = vec![
+        Line::from(vec![
+            Span::styled("Duration    ", Style::default().fg(Color::Gray)),
+            Span::styled(format_duration(total_mins), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled("     Efficiency ", Style::default().fg(Color::Gray)),
+            Span::styled(format!("{:.0}%", efficiency), Style::default().fg(Color::White)),
+            Span::styled("     Performance ", Style::default().fg(Color::Gray)),
+            Span::styled(format!("{:.0}%", performance), Style::default().fg(Color::White)),
+        ]),
+        Line::from(""),
+    ];
+
+    // Sleep stage bars
+    let bar_width = (area.width as usize).saturating_sub(18);
+    if total_mins > 0 {
+        text.push(create_stage_line("Awake", awake_mins, total_mins, Color::Yellow, bar_width));
+        text.push(create_stage_line("Light", light_mins, total_mins, Color::Blue, bar_width));
+        text.push(create_stage_line("Deep ", deep_mins, total_mins, Color::Magenta, bar_width));
+        text.push(create_stage_line("REM  ", rem_mins, total_mins, Color::Cyan, bar_width));
     }
 
     let paragraph = Paragraph::new(text);
-    f.render_widget(paragraph, inner);
+    f.render_widget(paragraph, area);
+}
+
+fn create_stage_line<'a>(label: &'a str, mins: i64, total: i64, color: Color, width: usize) -> Line<'a> {
+    let percentage = (mins as f64 / total as f64 * 100.0) as i32;
+    let bar = create_proportional_bar(mins, total, width);
+    
+    Line::from(vec![
+        Span::styled(format!("{} ", label), Style::default().fg(Color::Gray)),
+        Span::styled(format_duration(mins), Style::default().fg(Color::White)),
+        Span::styled(" ", Style::default()),
+        Span::styled(bar, Style::default().fg(color)),
+        Span::styled(format!(" {:2}%", percentage), Style::default().fg(Color::DarkGray)),
+    ])
 }
 
 fn render_sleep_history(f: &mut Frame, area: Rect, data: &DashboardData) {
     let block = Block::default()
-        .title(" Sleep History (7 Days) ")
+        .title(" Sleep History (7d) ")
+        .title_style(Style::default().fg(Color::Cyan))
         .borders(Borders::ALL)
-        .border_type(ratatui::widgets::BorderType::Rounded);
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(Color::DarkGray));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
 
-    // Create table for sleep history
-    let header_cells = ["Date", "Hours", "Graph", "Efficiency"]
-        .iter()
-        .map(|h| Cell::from(*h).style(Style::default().fg(Color::Yellow)));
-    let header = Row::new(header_cells).height(1).bottom_margin(1);
+    let header_cells = vec![
+        Cell::from("Date").style(Style::default().fg(Color::Gray)),
+        Cell::from("Hours").style(Style::default().fg(Color::Gray)),
+        Cell::from("Sleep").style(Style::default().fg(Color::Gray)),
+        Cell::from("Eff.").style(Style::default().fg(Color::Gray)),
+    ];
+    let header = Row::new(header_cells).height(1);
 
     let rows: Vec<Row> = data
         .sleep
         .iter()
         .take(7)
+        .filter(|s| s.score.is_some())
         .map(|sleep| {
-            let rfc_date = sleep.start.to_rfc3339();
-            let date = rfc_date.split('T').next().unwrap_or("");
-            let hours = sleep.score.stage_summary.total_in_bed_time_milli as f64 / 3600000.0;
-            let bar = create_horizontal_bar(hours as i32, 10, 20);
-            let efficiency = sleep.score.sleep_efficiency_percentage;
+            let date = format_date(&sleep.start);
+            let hours = sleep.score.as_ref().map(|s| s.stage_summary.total_in_bed_time_milli as f64 / 3600000.0).unwrap_or(0.0);
+            let efficiency = sleep.score.as_ref().and_then(|s| s.sleep_efficiency_percentage).unwrap_or(0.0) as i32;
+            
+            let bar_width = 20;
+            let bar = create_horizontal_bar((hours * 10.0) as i32, 100, bar_width);
+            let bar_color = if hours >= 7.0 { Color::Green } else if hours >= 6.0 { Color::Yellow } else { Color::Red };
 
             let cells = vec![
-                Cell::from(date.to_string()),
-                Cell::from(format!("{:.1}h", hours)),
-                Cell::from(bar).style(Style::default().fg(Color::Cyan)),
-                Cell::from(format!("{}%", efficiency)),
+                Cell::from(date).style(Style::default().fg(Color::White)),
+                Cell::from(format!("{:.1}h", hours)).style(Style::default().fg(Color::White)),
+                Cell::from(bar).style(Style::default().fg(bar_color)),
+                Cell::from(format!("{}%", efficiency)).style(Style::default().fg(Color::Gray)),
             ];
             Row::new(cells).height(1)
         })
         .collect();
 
-    let table = Table::new(rows)
-        .header(header)
-        .block(Block::default())
-        .widths(&[
-            Constraint::Length(12),
-            Constraint::Length(8),
-            Constraint::Length(22),
-            Constraint::Length(12),
-        ]);
+    let table = Table::new(rows, vec![
+        Constraint::Length(10),
+        Constraint::Length(7),
+        Constraint::Min(10),
+        Constraint::Length(6),
+    ])
+    .header(header)
+    .column_spacing(2);
 
     f.render_widget(table, inner);
 }
@@ -384,66 +488,118 @@ fn render_sleep_history(f: &mut Frame, area: Rect, data: &DashboardData) {
 fn render_workouts(f: &mut Frame, area: Rect, data: &DashboardData) {
     let block = Block::default()
         .title(" Recent Workouts ")
+        .title_style(Style::default().fg(Color::Cyan))
         .borders(Borders::ALL)
-        .border_type(ratatui::widgets::BorderType::Rounded);
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(Color::DarkGray));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
 
-    let header_cells = ["Date", "Activity", "Strain", "Duration", "HR"]
-        .iter()
-        .map(|h| Cell::from(*h).style(Style::default().fg(Color::Yellow)));
-    let header = Row::new(header_cells).height(1).bottom_margin(1);
+    let header_cells = vec![
+        Cell::from("Date").style(Style::default().fg(Color::Gray)),
+        Cell::from("Activity").style(Style::default().fg(Color::Gray)),
+        Cell::from("Strain").style(Style::default().fg(Color::Gray)),
+        Cell::from("Duration").style(Style::default().fg(Color::Gray)),
+        Cell::from("Avg HR").style(Style::default().fg(Color::Gray)),
+    ];
+    let header = Row::new(header_cells).height(1);
 
     let rows: Vec<Row> = data
         .workouts
         .iter()
         .take(5)
+        .filter(|w| w.score.is_some())
         .map(|workout| {
-            let rfc_date = workout.start.to_rfc3339();
-            let date = rfc_date.split('T').next().unwrap_or("");
-            let activity = workout.sport_name.clone();
-            let strain_bar = create_horizontal_bar((workout.score.strain * 10.0) as i32, 210, 10);
-            let strain = format!("{:.1}", workout.score.strain);
-            let duration = format_duration(
-                ((workout.end.timestamp() - workout.start.timestamp()) / 60) as i64
-            );
-            let hr = format!("{} bpm", workout.score.average_heart_rate);
+            let date = format_date(&workout.start);
+            let activity = &workout.sport_name;
+            let score = workout.score.as_ref().unwrap();
+            let strain = score.strain;
+            let duration_mins = (workout.end.timestamp() - workout.start.timestamp()) / 60;
+            let avg_hr = score.average_heart_rate;
+
+            let strain_bar_width = 8;
+            let strain_bar = create_horizontal_bar((strain * 5.0) as i32, 100, strain_bar_width);
+            let strain_color = if strain >= 15.0 { Color::Red } else if strain >= 10.0 { Color::Yellow } else { Color::Green };
 
             let cells = vec![
-                Cell::from(date.to_string()),
-                Cell::from(activity),
-                Cell::from(format!("{} {}", strain_bar, strain)),
-                Cell::from(duration),
-                Cell::from(hr),
+                Cell::from(date).style(Style::default().fg(Color::White)),
+                Cell::from(activity.clone()).style(Style::default().fg(Color::White)),
+                Cell::from(format!("{} {:.1}", strain_bar, strain)).style(Style::default().fg(strain_color)),
+                Cell::from(format_duration(duration_mins)).style(Style::default().fg(Color::Gray)),
+                Cell::from(format!("{}", avg_hr)).style(Style::default().fg(Color::Gray)),
             ];
             Row::new(cells).height(1)
         })
         .collect();
 
-    let table = Table::new(rows)
-        .header(header)
-        .block(Block::default())
-        .widths(&[
-            Constraint::Length(12),
-            Constraint::Length(16),
-            Constraint::Length(16),
-            Constraint::Length(10),
-            Constraint::Length(10),
-        ]);
+    let table = Table::new(rows, vec![
+        Constraint::Length(10),
+        Constraint::Length(16),
+        Constraint::Length(14),
+        Constraint::Length(10),
+        Constraint::Length(8),
+    ])
+    .header(header)
+    .column_spacing(2);
 
     f.render_widget(table, inner);
 }
 
+fn render_footer(f: &mut Frame, area: Rect) {
+    let footer = Paragraph::new("  r Refresh  q Quit")
+        .style(Style::default().fg(Color::DarkGray));
+    f.render_widget(footer, area);
+}
+
+fn render_error_popup(f: &mut Frame, area: Rect, error: &str) {
+    let popup_area = centered_rect(80, 40, area);
+    
+    let error_text = format!("\n{}\n\nPress any key to continue...", error);
+    let error_widget = Paragraph::new(error_text)
+        .style(Style::default().fg(Color::Red))
+        .alignment(Alignment::Center)
+        .wrap(Wrap { trim: true })
+        .block(
+            Block::default()
+                .title(" Error ")
+                .title_style(Style::default().fg(Color::Red))
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(Color::Red))
+        );
+    
+    f.render_widget(Clear, popup_area);
+    f.render_widget(error_widget, popup_area);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
 fn create_horizontal_bar(value: i32, max: i32, width: usize) -> String {
-    let ratio = (value as f64 / max as f64).min(1.0);
+    if width == 0 {
+        return String::new();
+    }
+    let ratio = (value as f64 / max as f64).min(1.0).max(0.0);
     let filled = (ratio * width as f64) as usize;
     let filled_str = "█".repeat(filled);
-    let empty_str = "░".repeat(width - filled);
+    let empty_str = "░".repeat(width.saturating_sub(filled));
     format!("{}{}", filled_str, empty_str)
 }
 
-fn get_score_color(score: i32) -> Color {
+fn create_proportional_bar(value: i64, total: i64, width: usize) -> String {
+    if total == 0 || width == 0 {
+        return "░".repeat(width);
+    }
+    let ratio = (value as f64 / total as f64).min(1.0).max(0.0);
+    let filled = (ratio * width as f64) as usize;
+    let filled_str = "█".repeat(filled);
+    let empty_str = "░".repeat(width.saturating_sub(filled));
+    format!("{}{}", filled_str, empty_str)
+}
+
+fn get_recovery_color(score: i32) -> Color {
     if score >= 67 {
         Color::Green
     } else if score >= 33 {
@@ -454,6 +610,9 @@ fn get_score_color(score: i32) -> Color {
 }
 
 fn format_duration(minutes: i64) -> String {
+    if minutes < 0 {
+        return "--".to_string();
+    }
     let hours = minutes / 60;
     let mins = minutes % 60;
     if hours > 0 {
@@ -463,10 +622,8 @@ fn format_duration(minutes: i64) -> String {
     }
 }
 
-fn format_duration_short(minutes: i64) -> String {
-    let hours = minutes / 60;
-    let mins = minutes % 60;
-    format!("{}:{:02}", hours, mins)
+fn format_date(datetime: &chrono::DateTime<chrono::Utc>) -> String {
+    datetime.format("%b %d").to_string()
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {

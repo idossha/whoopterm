@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use oauth2::{AuthorizationCode, AuthUrl, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope, TokenResponse, TokenUrl};
+use oauth2::{AuthType, AuthorizationCode, AuthUrl, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope, TokenResponse, TokenUrl};
 use oauth2::basic::BasicClient;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
@@ -41,7 +41,8 @@ impl AuthManager {
             AuthUrl::new(AUTH_URL.to_string())?,
             Some(TokenUrl::new(TOKEN_URL.to_string())?),
         )
-        .set_redirect_uri(RedirectUrl::new(REDIRECT_URI.to_string())?);
+        .set_redirect_uri(RedirectUrl::new(REDIRECT_URI.to_string())?)
+        .set_auth_type(AuthType::RequestBody);
 
         let (auth_url, _csrf_token) = client
             .authorize_url(CsrfToken::new_random)
@@ -65,13 +66,14 @@ impl AuthManager {
 
         // Start local server to receive callback
         let code = self.receive_auth_code().await?;
+        eprintln!("Received auth code: {}...", &code[..code.len().min(10)]);
 
         // Exchange code for token
         let token = client
             .exchange_code(AuthorizationCode::new(code))
             .request_async(oauth2::reqwest::async_http_client)
             .await
-            .context("Failed to exchange code for token")?;
+            .map_err(|e| anyhow::anyhow!("Token exchange failed: {:?}", e))?;
 
         let tokens = Tokens {
             access_token: token.access_token().secret().clone(),
@@ -114,7 +116,8 @@ impl AuthManager {
             Some(ClientSecret::new(client_secret.clone())),
             AuthUrl::new(AUTH_URL.to_string())?,
             Some(TokenUrl::new(TOKEN_URL.to_string())?),
-        );
+        )
+        .set_auth_type(AuthType::RequestBody);
 
         let token = client
             .exchange_refresh_token(&oauth2::RefreshToken::new(refresh_token.to_string()))
